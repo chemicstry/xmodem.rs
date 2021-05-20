@@ -1,14 +1,42 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(not(feature = "std"))]
 use core::convert::{From, TryFrom};
-#[cfg(feature = "std")]
-use std::convert::{From, TryFrom};
 
 #[cfg(not(feature = "std"))]
-use core_io::{self as io, Read, Write};
+pub mod io {
+    pub trait Read {
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize>;
+        fn read_exact(&mut self, buf: &mut [u8]) -> Result<()>;
+    }
+
+    pub trait Write {
+        fn write_all(&mut self, data: &[u8]) -> Result<()>;
+    }
+
+    #[derive(Debug)]
+    pub struct Error {
+        kind: ErrorKind,
+    }
+
+    impl Error {
+        pub fn kind(&self) -> ErrorKind {
+            self.kind.clone()
+        }
+    }
+
+    #[derive(Debug, PartialEq, Clone)]
+    pub enum ErrorKind {
+        TimedOut,
+        Other,
+    }
+
+    pub type Result<T> = core::result::Result<T, Error>;
+}
+
 #[cfg(feature = "std")]
-use std::io::{self, Read, Write};
+use std::io;
+
+use io::{Read, Write};
 
 use ::log::{debug, error, info, warn};
 
@@ -372,7 +400,7 @@ impl Xmodem {
                     self.max_errors
                 );
                 if let Err(err) = dev.write_all(&[CAN]) {
-                    warn!("Error sending CAN byte: {}", err);
+                    warn!("Error sending CAN byte: {:?}", err);
                 }
                 return Err(Error::ExhaustedRetries);
             }

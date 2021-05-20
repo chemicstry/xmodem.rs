@@ -10,7 +10,6 @@ description = "An implementation of the XMODEM file-transfer protocol."
 edition = "2018"
 
 [dependencies]
-core_io = { version = "0.1", default-features = false, optional = true }
 log = { version = "^0.4", default-features = false }
 crc16 = "^0.4"
 
@@ -20,6 +19,4 @@ rand = "^0.8"
 
 [features]
 std = []
-default = ["std"]
-# XXX cargo#1839
-core = ["core_io"]
+default = []

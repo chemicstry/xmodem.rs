@@ -3,7 +3,7 @@ extern crate rand;
 extern crate tempfile;
 extern crate xmodem;
 
-use rand::{RngCore, thread_rng};
+use rand::{thread_rng, RngCore};
 use std::io::{self, Read, Seek, Write};
 use std::process::{ChildStdin, ChildStdout, Command, Stdio};
 use tempfile::NamedTempFile;
