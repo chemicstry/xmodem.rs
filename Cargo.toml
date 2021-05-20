@@ -11,12 +11,12 @@ edition = "2018"
 
 [dependencies]
 core_io = { version = "0.1", default-features = false, optional = true }
-log = { version = "^0.3", default-features = false }
-crc16 = "^0.3"
+log = { version = "^0.4", default-features = false }
+crc16 = "^0.4"
 
 [dev-dependencies]
-tempfile = "^2.0"
-rand = "^0.3"
+tempfile = "^3.2"
+rand = "^0.8"
 
 [features]
 std = []
