@@ -19,4 +19,4 @@ rand = "^0.8"
 
 [features]
 std = []
-default = []
+default = ["std"]

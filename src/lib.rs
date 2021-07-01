@@ -2,7 +2,6 @@
 
 use core::convert::{From, TryFrom};
 
-#[cfg(not(feature = "std"))]
 pub mod io {
     pub trait Read {
         fn read(&mut self, buf: &mut [u8]) -> Result<usize>;
@@ -10,31 +9,50 @@ pub mod io {
     }
 
     pub trait Write {
-        fn write_all(&mut self, data: &[u8]) -> Result<()>;
+        fn write_all(&mut self, buf: &[u8]) -> Result<()>;
     }
 
     #[derive(Debug)]
-    pub struct Error {
-        kind: ErrorKind,
-    }
-
-    impl Error {
-        pub fn kind(&self) -> ErrorKind {
-            self.kind.clone()
-        }
-    }
-
-    #[derive(Debug, PartialEq, Clone)]
-    pub enum ErrorKind {
+    pub enum Error {
         TimedOut,
-        Other,
+        #[cfg(feature = "std")]
+        IoError(std::io::Error),
     }
 
     pub type Result<T> = core::result::Result<T, Error>;
 }
 
 #[cfg(feature = "std")]
-use std::io;
+mod std_io {
+    impl<R: std::io::Read> crate::io::Read for R {
+        fn read(&mut self, buf: &mut [u8]) -> crate::io::Result<usize> {
+            Ok(std::io::Read::read(self, buf).map_err(|e| match e.kind() {
+                std::io::ErrorKind::TimedOut => crate::io::Error::TimedOut,
+                _ => crate::io::Error::IoError(e),
+            })?)
+        }
+
+        fn read_exact(&mut self, buf: &mut [u8]) -> crate::io::Result<()> {
+            Ok(
+                std::io::Read::read_exact(self, buf).map_err(|e| match e.kind() {
+                    std::io::ErrorKind::TimedOut => crate::io::Error::TimedOut,
+                    _ => crate::io::Error::IoError(e),
+                })?,
+            )
+        }
+    }
+
+    impl<W: std::io::Write> crate::io::Write for W {
+        fn write_all(&mut self, buf: &[u8]) -> crate::io::Result<()> {
+            Ok(
+                std::io::Write::write_all(self, buf).map_err(|e| match e.kind() {
+                    std::io::ErrorKind::TimedOut => crate::io::Error::TimedOut,
+                    _ => crate::io::Error::IoError(e),
+                })?,
+            )
+        }
+    }
+}
 
 use io::{Read, Write};
 
@@ -316,8 +334,8 @@ impl Xmodem {
                     dev.write_all(&[ACK])?;
                     break;
                 }
-                Err(Error::Io(e)) => match e.kind() {
-                    io::ErrorKind::TimedOut => {
+                Err(Error::Io(e)) => match e {
+                    io::Error::TimedOut => {
                         self.errors += 1;
                         warn!("Timeout!");
                         continue;
@@ -502,12 +520,7 @@ fn get_byte<R: Read>(reader: &mut R) -> io::Result<u8> {
 fn get_byte_timeout<R: Read>(reader: &mut R) -> io::Result<Option<u8>> {
     match get_byte(reader) {
         Ok(c) => Ok(Some(c)),
-        Err(err) => {
-            if err.kind() == io::ErrorKind::TimedOut {
-                Ok(None)
-            } else {
-                Err(err)
-            }
-        }
+        Err(io::Error::TimedOut) => Ok(None),
+        Err(e) => Err(e),
     }
 }
