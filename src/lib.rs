@@ -15,6 +15,7 @@ pub mod io {
     #[derive(Debug)]
     pub enum Error {
         TimedOut,
+        Other(&'static str),
         #[cfg(feature = "std")]
         IoError(std::io::Error),
         #[cfg(feature = "embedded_hal")]
