@@ -17,12 +17,14 @@ pub mod io {
         TimedOut,
         #[cfg(feature = "std")]
         IoError(std::io::Error),
+        #[cfg(feature = "embedded_hal")]
+        HalError,
     }
 
     pub type Result<T> = core::result::Result<T, Error>;
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(feature = "embedded_hal")))]
 mod std_io {
     impl<R: std::io::Read> crate::io::Read for R {
         fn read(&mut self, buf: &mut [u8]) -> crate::io::Result<usize> {
@@ -53,6 +55,46 @@ mod std_io {
         }
     }
 }
+
+#[cfg(all(feature = "embedded_hal", not(feature = "std")))]
+mod embedded_hal_io {
+    use embedded_hal::serial;
+
+    impl<R: serial::Read<u8>> crate::io::Read for R {
+        fn read(&mut self, buf: &mut [u8]) -> crate::io::Result<usize> {
+            if buf.len() == 0 {
+                return Ok(0);
+            }
+
+            buf[0] =
+                nb::block!(serial::Read::read(self)).map_err(|_| crate::io::Error::HalError)?;
+            Ok(1)
+        }
+
+        fn read_exact(&mut self, buf: &mut [u8]) -> crate::io::Result<()> {
+            for b in buf {
+                *b =
+                    nb::block!(serial::Read::read(self)).map_err(|_| crate::io::Error::HalError)?;
+            }
+
+            Ok(())
+        }
+    }
+
+    impl<W: serial::Write<u8>> crate::io::Write for W {
+        fn write_all(&mut self, buf: &[u8]) -> crate::io::Result<()> {
+            for b in buf {
+                nb::block!(serial::Write::write(self, *b))
+                    .map_err(|_| crate::io::Error::HalError)?;
+            }
+
+            Ok(())
+        }
+    }
+}
+
+#[cfg(all(feature = "std", feature = "embedded_hal"))]
+compile_error!("Features std and embedded_hal cannot be used together");
 
 use io::{Read, Write};
 
